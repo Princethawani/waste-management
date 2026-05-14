@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BinWatch - Waste Bin Monitor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e2d45;--accent:#00d4ff;--accent2:#7c3aed;--safe:#10b981;--close:#f59e0b;--critical:#ef4444;--text:#e2e8f0;--muted:#64748b;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,sans-serif;min-height:100vh;}
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#0d1f3c 0%,var(--bg) 70%);}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:360px;box-shadow:0 25px 50px rgba(0,0,0,0.5);}
+.login-card h1{font-size:1.6rem;font-weight:700;margin-bottom:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.login-card p{color:var(--muted);font-size:0.85rem;margin-bottom:28px;}
+.form-group{margin-bottom:16px;}
+.form-group label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
+.form-group input,.form-group select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.95rem;outline:none;transition:border-color .2s;}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent);}
+.btn{width:100%;padding:11px;border-radius:8px;border:none;cursor:pointer;font-size:.95rem;font-weight:600;transition:all .2s;}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+.btn-primary:hover{opacity:.85;transform:translateY(-1px);}
+.toggle-auth{text-align:center;margin-top:16px;font-size:.85rem;color:var(--muted);}
+.toggle-auth a{color:var(--accent);cursor:pointer;}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid var(--critical);border-radius:8px;padding:10px 14px;font-size:.85rem;color:var(--critical);margin-bottom:14px;display:none;}
+#app{display:none;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.logo{font-size:1.1rem;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:5px;transition:background .3s;}
+.conn-dot.connected{background:var(--safe);box-shadow:0 0 6px var(--safe);}
+.conn-status{font-size:.8rem;color:var(--muted);}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.user-badge{font-size:.8rem;background:var(--surface2);padding:6px 12px;border-radius:20px;border:1px solid var(--border);}
+.btn-sm{padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:600;}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border);}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+.btn-danger{background:rgba(239,68,68,.15);color:var(--critical);border:1px solid rgba(239,68,68,.3);}
+.btn-danger:hover{background:rgba(239,68,68,.3);}
+.btn-success{background:rgba(16,185,129,.15);color:var(--safe);border:1px solid rgba(16,185,129,.3);}
+.btn-success:hover{background:rgba(16,185,129,.3);}
+.main{padding:24px 28px;max-width:1400px;margin:0 auto;}
+.section-title{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:14px;margin-top:8px;}
+.cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
+.card-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+.card-value{font-size:2rem;font-weight:700;line-height:1;}
+.card-sub{font-size:.78rem;color:var(--muted);margin-top:5px;}
+.status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
+.status-safe{background:rgba(16,185,129,.12);color:var(--safe);border:1px solid rgba(16,185,129,.3);}
+.status-close{background:rgba(245,158,11,.12);color:var(--close);border:1px solid rgba(245,158,11,.3);}
+.status-critical{background:rgba(239,68,68,.12);color:var(--critical);border:1px solid rgba(239,68,68,.3);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4);}50%{box-shadow:0 0 0 6px rgba(239,68,68,0);}}
+/* BIN VISUAL */
+.bin-card{display:flex;flex-direction:column;align-items:center;gap:12px;}
+.bin-visual{position:relative;width:90px;height:120px;}
+.bin-body{position:absolute;bottom:0;left:8px;right:8px;top:10px;border:3px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden;background:var(--surface2);}
+.bin-fill{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,var(--safe),rgba(16,185,129,.4));transition:height .8s ease,background .5s;border-radius:0 0 7px 7px;}
+.bin-lid{position:absolute;top:0;left:0;right:0;height:14px;background:var(--border);border-radius:4px;}
+.bin-pct{font-size:1.5rem;font-weight:800;color:var(--accent);}
+.bin-label-sm{font-size:.72rem;color:var(--muted);}
+/* FILL BAR */
+.fill-bar-wrap{width:100%;background:var(--surface2);border-radius:8px;height:10px;overflow:hidden;margin-top:4px;}
+.fill-bar{height:100%;border-radius:8px;transition:width .8s ease,background .5s;}
+/* GRID */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+@media(max-width:768px){.grid2{grid-template-columns:1fr;}}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
+.chart-card h3{font-size:.85rem;font-weight:600;margin-bottom:14px;}
+.chart-wrap{position:relative;height:200px;}
+/* SCHEDULE */
+.schedule-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:20px;}
+.schedule-panel h3{font-size:.85rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.schedule-form{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:20px;}
+@media(max-width:900px){.schedule-form{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.schedule-form{grid-template-columns:1fr;}}
+.schedule-form .form-group{margin-bottom:0;}
+.schedule-list{display:flex;flex-direction:column;gap:10px;}
+.schedule-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.schedule-item-info{flex:1;min-width:180px;}
+.schedule-date{font-size:.95rem;font-weight:600;}
+.schedule-notes{font-size:.78rem;color:var(--muted);margin-top:3px;}
+.schedule-fill{font-size:.78rem;color:var(--close);font-weight:600;}
+.schedule-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.sched-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:700;text-transform:uppercase;}
+.sched-pending{background:rgba(245,158,11,.12);color:var(--close);border:1px solid rgba(245,158,11,.3);}
+.sched-confirmed{background:rgba(0,212,255,.12);color:var(--accent);border:1px solid rgba(0,212,255,.3);}
+.sched-completed{background:rgba(16,185,129,.12);color:var(--safe);border:1px solid rgba(16,185,129,.3);}
+.sched-cancelled{background:rgba(100,116,139,.12);color:var(--muted);border:1px solid rgba(100,116,139,.3);}
+.empty-state{text-align:center;padding:32px;color:var(--muted);font-size:.875rem;}
+/* ALERT PANEL */
+.alert-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:20px;}
+.alert-panel h3{font-size:.85rem;font-weight:600;margin-bottom:16px;}
+.alert-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;align-items:end;}
+.alert-form .form-group{margin-bottom:0;}
+.toggle-wrap{display:flex;align-items:center;gap:10px;padding-bottom:2px;}
+.toggle{position:relative;width:44px;height:24px;}
+.toggle input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:var(--border);border-radius:24px;cursor:pointer;transition:.3s;}
+.slider:before{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.3s;}
+.toggle input:checked+.slider{background:var(--accent);}
+.toggle input:checked+.slider:before{transform:translateX(20px);}
+/* SIMULATOR */
+.simulator{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:20px;}
+.simulator h3{font-size:.85rem;font-weight:600;margin-bottom:12px;}
+.sim-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.sim-slider{-webkit-appearance:none;flex:1;min-width:180px;height:6px;border-radius:3px;background:var(--border);outline:none;}
+.sim-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;}
+.sim-val{font-size:1rem;font-weight:700;color:var(--accent);min-width:55px;}
+/* TABLE */
+.readings-table{width:100%;border-collapse:collapse;font-size:.84rem;}
+.readings-table th{text-align:left;padding:10px 12px;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);}
+.readings-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.03);}
+.readings-table tr:hover td{background:var(--surface2);}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:.875rem;font-weight:500;opacity:0;transform:translateY(10px);transition:all .3s;z-index:999;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast-success{background:rgba(16,185,129,.9);color:#fff;}
+.toast-error{background:rgba(239,68,68,.9);color:#fff;}
+.toast-info{background:rgba(0,212,255,.9);color:#000;}
+.divider{height:1px;background:var(--border);margin:4px 0 20px;}
+#driver-view{display:none;}.driver-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;margin-bottom:20px;}.driver-panel h2{font-size:1.1rem;font-weight:700;margin-bottom:6px;}.driver-panel p{font-size:.85rem;color:var(--muted);margin-bottom:24px;}.driver-sched-item{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}.driver-sched-date{font-size:1.05rem;font-weight:700;flex:1;min-width:200px;}.driver-sched-notes{font-size:.82rem;color:var(--muted);margin-top:4px;}.driver-sched-fill{font-size:.8rem;color:var(--close);font-weight:600;margin-top:3px;}.driver-actions{display:flex;gap:10px;flex-wrap:wrap;}.driver-empty{text-align:center;padding:48px;color:var(--muted);}.driver-badge{display:inline-block;background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3);border-radius:12px;padding:3px 10px;font-size:.72rem;font-weight:700;text-transform:uppercase;margin-left:8px;}</style>
+</head>
+<body>
+<!-- LOGIN -->
+<div id="login-screen">
+ <div class="login-card">
+  <h1>🗑 BinWatch</h1>
+  <p>Smart Waste Bin Monitor</p>
+  <div class="error-msg" id="auth-error"></div>
+  <div class="form-group"><label>Username</label><input id="inp-user" type="text" placeholder="admin" autocomplete="username"></div>
+  <div class="form-group" id="reg-email-wrap" style="display:none"><label>Email</label><input id="inp-email" type="email" placeholder="you@example.com"></div>
+  <div class="form-group"><label>Password</label><input id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+  <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Sign In</button>
+  <div class="toggle-auth"><span id="auth-toggle-text">No account?</span> <a onclick="toggleAuthMode()">Register</a></div>
+ </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+ <div class="topbar">
+  <div style="display:flex;align-items:center;gap:14px">
+   <div class="logo">🗑 BinWatch</div>
+   <div class="conn-status"><span class="conn-dot" id="conn-dot"></span><span id="conn-label">Disconnected</span></div>
+  </div>
+  <div class="topbar-right">
+   <div class="user-badge">👤 <span id="user-label"></span></div>
+   <button class="btn-sm btn-outline" onclick="logout()">Logout</button>
+  </div>
+ </div>
+
+ <div class="main">
+  <!-- OVERVIEW CARDS -->
+  <p class="section-title">Live Bin Status</p>
+  <div class="cards-row">
+
+   <!-- BIN FILL VISUAL CARD -->
+   <div class="card bin-card">
+    <div class="card-label">Fill Level</div>
+    <div class="bin-visual">
+     <div class="bin-lid"></div>
+     <div class="bin-body"><div class="bin-fill" id="bin-fill" style="height:0%"></div></div>
+    </div>
+    <div class="bin-pct" id="bin-pct">--%</div>
+    <div class="bin-label-sm" id="bin-level-label">Waiting for data</div>
+   </div>
+
+   <!-- DISTANCE CARD -->
+   <div class="card">
+    <div class="card-label">Distance Reading</div>
+    <div class="card-value" id="dist-val" style="color:var(--accent)">-- <span style="font-size:1rem">cm</span></div>
+    <div class="card-sub">Sensor to waste surface</div>
+    <div style="margin-top:14px"><span class="status-badge status-safe" id="status-badge">Safe</span></div>
+    <div class="fill-bar-wrap" style="margin-top:12px"><div class="fill-bar" id="fill-bar" style="width:0%;background:var(--safe)"></div></div>
+   </div>
+
+   <!-- NEXT COLLECTION -->
+   <div class="card">
+    <div class="card-label">Next Collection</div>
+    <div class="card-value" style="font-size:1.1rem;line-height:1.4" id="next-collection">None scheduled</div>
+    <div class="card-sub" id="next-collection-sub">Schedule a pickup below</div>
+   </div>
+
+   <!-- STATS CARD -->
+   <div class="card">
+    <div class="card-label">Total Readings</div>
+    <div class="card-value" id="total-readings">0</div>
+    <div class="card-sub">Last 100 stored</div>
+    <div style="margin-top:10px;font-size:.78rem;color:var(--muted)">Schedules: <span id="sched-count" style="color:var(--text);font-weight:600">0</span></div>
+   </div>
+  </div>
+  <!-- SIMULATOR -->
+  <div class="simulator">
+   <h3>🔬 Sensor Simulator <span style="font-size:.72rem;color:var(--muted);font-weight:400">(no Arduino needed)</span></h3>
+   <div class="sim-controls">
+    <span style="font-size:.84rem;color:var(--muted)">Distance:</span>
+    <input class="sim-slider" type="range" min="1" max="100" value="35" id="sim-slider" oninput="updateSimVal(this.value)">
+    <span class="sim-val" id="sim-val">35 cm</span>
+    <button class="btn-sm btn-primary" onclick="sendSimReading()">Send Reading</button>
+    <button class="btn-sm btn-outline" id="auto-btn" onclick="toggleAutoSim()">▶ Auto</button>
+   </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="grid2">
+   <div class="chart-card">
+    <h3>📈 Fill Level Over Time</h3>
+    <div class="chart-wrap"><canvas id="line-chart"></canvas></div>
+   </div>
+   <div class="chart-card">
+    <h3>🍩 Status Distribution</h3>
+    <div class="chart-wrap"><canvas id="doughnut-chart"></canvas></div>
+   </div>
+  </div>
+
+  <!-- COLLECTION SCHEDULE -->
+  <p class="section-title">Collection Schedule</p>
+  <div class="schedule-panel">
+   <h3>📅 Schedule a Bin Collection
+    <span style="font-size:.72rem;color:var(--muted);font-weight:400;margin-left:8px">Auto-scheduled when bin reaches 80%</span>
+   </h3>
+   <div class="schedule-form">
+    <div class="form-group"><label>Collection Date &amp; Time</label><input id="sched-datetime" type="datetime-local"></div>
+    <div class="form-group"><label>Notes (optional)</label><input id="sched-notes" type="text" placeholder="e.g. Main gate accessible"></div>
+    <div class="form-group"><label>&nbsp;</label><button class="btn btn-primary" style="padding:10px" onclick="addSchedule()">+ Add Schedule</button></div>
+   </div>
+   <div class="divider"></div>
+   <div class="schedule-list" id="schedule-list">
+    <div class="empty-state">No collections scheduled yet.</div>
+   </div>
+  </div>
+
+  <!-- ALERT CONFIG -->
+  <p class="section-title">Alert &amp; Sensor Configuration</p>
+  <div class="alert-panel">
+   <h3>📧 Email Alerts &amp; Bin Setup</h3>
+   <div class="alert-form">
+    <div class="form-group"><label>Alert Email</label><input id="alert-email" type="email" placeholder="alerts@example.com"></div>
+    <div class="form-group"><label>Bin Depth (cm)</label><input id="alert-depth" type="number" value="50" min="10" max="300" title="Total internal height of your bin in cm"></div>
+    <div class="form-group"><label>Critical Threshold (cm)</label><input id="alert-critical" type="number" value="8" min="1" max="50"></div>
+    <div class="form-group"><label>Close Threshold (cm)</label><input id="alert-close" type="number" value="15" min="1" max="100"></div>
+    <div class="form-group"><label>Enable Alerts</label>
+     <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="alert-toggle"><span class="slider"></span></label><span id="toggle-label" style="font-size:.85rem;color:var(--muted)">Off</span></div>
+    </div>
+    <div class="form-group"><label>&nbsp;</label><button class="btn btn-primary" style="padding:10px" onclick="saveAlertConfig()">Save Config</button></div>
+   </div>
+  </div>
+
+  <!-- READINGS TABLE -->
+  <p class="section-title">Recent Readings</p>
+  <div class="chart-card" style="margin-bottom:32px">
+   <table class="readings-table">
+    <thead><tr><th>#</th><th>Distance</th><th>Fill Level</th><th>Status</th><th>Time</th></tr></thead>
+    <tbody id="readings-tbody"></tbody>
+   </table>
+  </div>
+ </div>
+</div>
+<div id="driver-view"></div>
+<div class="toast" id="toast"></div><script>
+const API=localStorage.getItem("apiBase")||"http://localhost:9001";
+let token=localStorage.getItem("token")||null;
+let username=localStorage.getItem("username")||null;
+let isRegister=false,autoSim=null;
+let lineChart,doughnutChart;
+let statusCounts={safe:0,close:0,critical:0};
+let allReadings=[],allSchedules=[];
+let currentRole=localStorage.getItem("role")||null;
+function toggleAuthMode(){isRegister=!isRegister;document.getElementById("auth-btn").textContent=isRegister?"Create Account":"Sign In";document.getElementById("auth-toggle-text").textContent=isRegister?"Have an account?":"No account?";document.getElementById("reg-email-wrap").style.display=isRegister?"block":"none";document.querySelector(".toggle-auth a").textContent=isRegister?"Login":"Register";}
+async function doAuth(){const u=document.getElementById("inp-user").value.trim();const p=document.getElementById("inp-pass").value;const e=document.getElementById("inp-email").value.trim();document.getElementById("auth-error").style.display="none";if(!u||!p){showErr("Please fill in all fields");return;}try{const url=isRegister?"/auth/register":"/auth/login";const body=isRegister?{username:u,email:e,password:p}:{username:u,password:p};const res=await fetch(API+url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const data=await res.json();if(!res.ok)throw new Error(data.error||"Auth failed");token=data.token;username=data.user.username;currentRole=data.user.role||"driver";localStorage.setItem("token",token);localStorage.setItem("username",username);localStorage.setItem("role",currentRole);showApp();}catch(err){showErr(err.message);}}
+function showErr(msg){var el=document.getElementById("auth-error");el.textContent=msg;el.style.display="block";}
+function logout(){token=null;username=null;currentRole=null;localStorage.removeItem("token");localStorage.removeItem("username");localStorage.removeItem("role");if(autoSim)clearInterval(autoSim);document.getElementById("app").style.display="none";document.getElementById("login-screen").style.display="flex";}
+function showApp(){document.getElementById("login-screen").style.display="none";if(currentRole==="driver"){document.getElementById("driver-view").style.display="block";document.getElementById("app").style.display="none";loadSchedules();setInterval(loadSchedules,15000);renderDriverView();}else{document.getElementById("app").style.display="block";document.getElementById("driver-view").style.display="none";initCharts();loadReadings();loadAlertConfig();loadSchedules();setInterval(loadReadings,3000);setInterval(loadSchedules,10000);}}
+function authHeaders(){return{"Content-Type":"application/json","Authorization":"Bearer "+token};}
+async function loadReadings(){try{const res=await fetch(API+"/readings",{headers:authHeaders()});if(res.status===401){logout();return;}allReadings=await res.json();updateUI();setConnected(true);}catch{setConnected(false);}}
+async function loadAlertConfig(){try{const res=await fetch(API+"/alerts/config",{headers:authHeaders()});const cfg=await res.json();document.getElementById("alert-email").value=cfg.email||"";document.getElementById("alert-critical").value=cfg.criticalThreshold;document.getElementById("alert-close").value=cfg.closeThreshold;document.getElementById("alert-depth").value=cfg.binDepthCm||50;document.getElementById("alert-toggle").checked=cfg.enabled;document.getElementById("toggle-label").textContent=cfg.enabled?"On":"Off";}catch(e){}}
+async function saveAlertConfig(){const cfg={email:document.getElementById("alert-email").value,criticalThreshold:parseInt(document.getElementById("alert-critical").value),closeThreshold:parseInt(document.getElementById("alert-close").value),binDepthCm:parseInt(document.getElementById("alert-depth").value),enabled:document.getElementById("alert-toggle").checked};try{const res=await fetch(API+"/alerts/config",{method:"PUT",headers:authHeaders(),body:JSON.stringify(cfg)});if(res.ok){showToast("Config saved!","success");loadAlertConfig();}else showToast("Failed to save","error");}catch{showToast("Network error","error");}}
+document.getElementById("alert-toggle").addEventListener("change",function(){document.getElementById("toggle-label").textContent=this.checked?"On":"Off";});
+function getFillColor(pct){if(pct>=80)return"#ef4444";if(pct>=50)return"#f59e0b";return"#10b981";}
+function getBinLabel(pct){if(pct>=95)return"FULL - Collection Required!";if(pct>=80)return"Almost Full - Schedule Pickup";if(pct>=50)return"Half Full";if(pct>=25)return"Quarter Full";return"Nearly Empty";}
+function updateUI(){if(!allReadings.length)return;const r=allReadings[0];const d=r.distance;const pct=Math.round(r.fillPercent||0);const s=r.status;const col=getFillColor(pct);document.getElementById("bin-fill").style.height=pct+"%";document.getElementById("bin-fill").style.background="linear-gradient(0deg,"+col+","+col+"66)";document.getElementById("bin-pct").textContent=pct+"%";document.getElementById("bin-pct").style.color=col;document.getElementById("bin-level-label").textContent=getBinLabel(pct);document.getElementById("dist-val").innerHTML=d+" <span style=font-size:1rem>cm</span>";document.getElementById("dist-val").style.color=col;document.getElementById("fill-bar").style.width=pct+"%";document.getElementById("fill-bar").style.background=col;const badge=document.getElementById("status-badge");badge.className="status-badge status-"+s;badge.textContent=s.charAt(0).toUpperCase()+s.slice(1);document.getElementById("total-readings").textContent=allReadings.length;statusCounts={safe:0,close:0,critical:0};allReadings.forEach(r=>{if(statusCounts[r.status]!==undefined)statusCounts[r.status]++;});updateCharts();updateTable();}
+function updateTable(){const tb=document.getElementById("readings-tbody");tb.innerHTML=allReadings.slice(0,20).map((r,i)=>{const pct=Math.round(r.fillPercent||0);const col=getFillColor(pct);return"<tr><td style=color:var(--muted)>"+(i+1)+"</td><td style=font-weight:600>"+r.distance+" cm</td><td><div style=display:flex;align-items:center;gap:8px><div style=width:60px;height:6px;background:var(--border);border-radius:3px;overflow:hidden><div style=width:"+pct+"%;height:100%;background:"+col+";border-radius:3px></div></div><span style=color:"+col+";font-size:.78rem;font-weight:600>"+pct+"%</span></div></td><td><span class=status-badge status-"+r.status+">"+r.status+"</span></td><td style=color:var(--muted)>"+new Date(r.timestamp).toLocaleTimeString()+"</td></tr>";}).join("");}function initCharts(){const lc=document.getElementById("line-chart").getContext("2d");lineChart=new Chart(lc,{type:"line",data:{labels:[],datasets:[{label:"Fill %",data:[],borderColor:"#00d4ff",backgroundColor:"rgba(0,212,255,.08)",borderWidth:2,pointRadius:2,tension:.4,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:"#64748b",maxTicksLimit:6},grid:{color:"#1e2d45"}},y:{min:0,max:100,ticks:{color:"#64748b",callback:function(v){return v+"%";}},grid:{color:"#1e2d45"}}}}});const dc=document.getElementById("doughnut-chart").getContext("2d");doughnutChart=new Chart(dc,{type:"doughnut",data:{labels:["Safe","Close","Critical"],datasets:[{data:[0,0,0],backgroundColor:["#10b981","#f59e0b","#ef4444"],borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#e2e8f0",padding:16}}},cutout:"65%"}});}
+function updateCharts(){const recent=[...allReadings].reverse().slice(-30);lineChart.data.labels=recent.map(r=>new Date(r.timestamp).toLocaleTimeString());lineChart.data.datasets[0].data=recent.map(r=>Math.round(r.fillPercent||0));lineChart.update("none");doughnutChart.data.datasets[0].data=[statusCounts.safe,statusCounts.close,statusCounts.critical];doughnutChart.update("none");}
+function setConnected(v){document.getElementById("conn-dot").className="conn-dot"+(v?" connected":"");document.getElementById("conn-label").textContent=v?"Live":"Offline";}
+async function loadSchedules(){try{const res=await fetch(API+"/schedules",{headers:authHeaders()});allSchedules=await res.json();renderSchedules();if(currentRole==="driver")renderDriverView();}catch(e){}}
+async function addSchedule(){const dt=document.getElementById("sched-datetime").value;const notes=document.getElementById("sched-notes").value;if(!dt){showToast("Please pick a date and time","error");return;}try{const res=await fetch(API+"/schedules",{method:"POST",headers:authHeaders(),body:JSON.stringify({scheduledFor:dt,notes:notes||"Manual schedule"})});if(res.ok){showToast("Collection scheduled!","success");document.getElementById("sched-notes").value="";loadSchedules();}else showToast("Failed to schedule","error");}catch{showToast("Network error","error");}}
+async function updateScheduleStatus(id,status){try{const res=await fetch(API+"/schedules/"+id,{method:"PATCH",headers:authHeaders(),body:JSON.stringify({status:status})});if(res.ok){showToast("Updated to: "+status,"success");loadSchedules();}}catch{showToast("Error","error");}}
+async function deleteSchedule(id){if(!confirm("Delete this schedule?"))return;try{const res=await fetch(API+"/schedules/"+id,{method:"DELETE",headers:authHeaders()});if(res.ok){showToast("Deleted","info");loadSchedules();}}catch{showToast("Error","error");}}
+function renderSchedules(){
+ var list=document.getElementById("schedule-list");
+ document.getElementById("sched-count").textContent=allSchedules.length;
+ var upcoming=allSchedules.filter(function(s){return s.status==="pending"||s.status==="confirmed";}).sort(function(a,b){return new Date(a.scheduledFor)-new Date(b.scheduledFor);});
+ if(upcoming.length){var next=upcoming[0];var d=new Date(next.scheduledFor);document.getElementById("next-collection").textContent=d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})+" "+d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});document.getElementById("next-collection-sub").textContent="Status: "+next.status+" - "+Math.round(next.fillPercentAtCreation)+"% full when scheduled";}else{document.getElementById("next-collection").textContent="None scheduled";document.getElementById("next-collection-sub").textContent="Schedule a pickup below";}
+ if(!allSchedules.length){list.innerHTML="<div class=empty-state>No collections scheduled yet.</div>";return;}
+ list.innerHTML=allSchedules.map(function(s){
+  var d=new Date(s.scheduledFor);
+  var isPast=d<new Date();
+  var dateStr=d.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+" at "+d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+  var overdueBadge=isPast&&s.status==="pending"?"<span style=color:var(--critical)>OVERDUE: </span>":"";
+  var btn1="",btn2="",btn3="";
+  if(s.status==="pending"){btn1="<button class=btn-sm onclick=updateScheduleStatus('" +s.id+ "','confirmed') style=background:rgba(0,212,255,.15);color:var(--accent);border:1px solid rgba(0,212,255,.3);border-radius:8px;padding:5px 10px;cursor:pointer>Confirm</button>";btn2="<button class=btn-sm onclick=updateScheduleStatus('" +s.id+ "','completed') style=background:rgba(16,185,129,.15);color:var(--safe);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:5px 10px;cursor:pointer>Done</button>";btn3="<button class=btn-sm onclick=updateScheduleStatus('" +s.id+ "','cancelled') style=background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:5px 10px;cursor:pointer>Cancel</button>";}
+  if(s.status==="confirmed"){btn2="<button class=btn-sm onclick=updateScheduleStatus('" +s.id+ "','completed') style=background:rgba(16,185,129,.15);color:var(--safe);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:5px 10px;cursor:pointer>Mark Done</button>";btn3="<button class=btn-sm onclick=updateScheduleStatus('" +s.id+ "','cancelled') style=background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:5px 10px;cursor:pointer>Cancel</button>";}
+  var delBtn="<button class=btn-sm onclick=deleteSchedule('" +s.id+ "') style=background:rgba(239,68,68,.15);color:var(--critical);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:5px 10px;cursor:pointer>Delete</button>";
+  return "<div class=schedule-item><div class=schedule-item-info><div class=schedule-date>"+overdueBadge+dateStr+"</div><div class=schedule-notes>"+s.notes+"</div><div class=schedule-fill>Bin was "+Math.round(s.fillPercentAtCreation)+"% full when scheduled</div></div><span class=sched-badge style=margin-right:8px>"+s.status+"</span><div class=schedule-actions>"+btn1+btn2+btn3+delBtn+"</div></div>";
+ }).join("");
+}
+function updateSimVal(v){document.getElementById("sim-val").textContent=v+" cm";}
+async function sendSimReading(){const distance=parseInt(document.getElementById("sim-slider").value);try{const res=await fetch(API+"/readings",{method:"POST",headers:authHeaders(),body:JSON.stringify({distance:distance})});if(res.ok){loadReadings();loadSchedules();}else showToast("Failed","error");}catch{showToast("Network error","error");}}
+function toggleAutoSim(){const btn=document.getElementById("auto-btn");if(autoSim){clearInterval(autoSim);autoSim=null;btn.textContent="Auto";return;}autoSim=setInterval(function(){const sl=document.getElementById("sim-slider");const nv=Math.max(1,Math.min(100,parseInt(sl.value)+(Math.random()>.5?1:-1)*Math.floor(Math.random()*4+1)));sl.value=nv;updateSimVal(nv);sendSimReading();},1800);btn.textContent="Stop";}
+function showToast(msg,type){const t=document.getElementById("toast");t.textContent=msg;t.className="toast toast-"+type+" show";setTimeout(function(){t.className="toast";},3200);}
+document.addEventListener("DOMContentLoaded",function(){
+ if(token&&username){currentRole=localStorage.getItem("role")||"driver";showApp();}
+ ["inp-user","inp-pass","inp-email"].forEach(function(id){var el=document.getElementById(id);if(el)el.addEventListener("keydown",function(e){if(e.key==="Enter")doAuth();});});
+ var tmr=new Date();tmr.setDate(tmr.getDate()+1);tmr.setHours(8,0,0,0);
+ var pad=function(n){return String(n).padStart(2,"0");};
+ document.getElementById("sched-datetime").value=tmr.getFullYear()+"-"+pad(tmr.getMonth()+1)+"-"+pad(tmr.getDate())+"T"+pad(tmr.getHours())+":"+pad(tmr.getMinutes());
+});
+function renderDriverView(){var dv=document.getElementById("driver-view");var active=allSchedules.filter(function(s){return s.status==="pending"||s.status==="confirmed";}).sort(function(a,b){return new Date(a.scheduledFor)-new Date(b.scheduledFor);});var past=allSchedules.filter(function(s){return s.status==="completed"||s.status==="cancelled";}).slice(0,5);var activeHTML="";if(!active.length){activeHTML="<div class=driver-empty>No active collections scheduled.<br>Check back later.</div>";}else{activeHTML=active.map(function(s){var d=new Date(s.scheduledFor);var isPast=d<new Date();var dateStr=d.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+" at "+d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});var overdueTag=isPast&&s.status==="pending"?"<span style=color:var(--critical);font-weight:700>OVERDUE </span>":"";var confirmBtn=s.status==="pending"?"<button onclick=driverConfirm('" +s.id+ "') style=background:rgba(0,212,255,.15);color:var(--accent);border:1px solid rgba(0,212,255,.3);border-radius:8px;padding:7px 14px;cursor:pointer;font-weight:600>Confirm Pickup</button>":"";var doneBtn="<button onclick=driverDone('" +s.id+ "') style=background:rgba(16,185,129,.15);color:var(--safe);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:7px 14px;cursor:pointer;font-weight:600>Mark Collected</button>";var statusColor=s.status==="confirmed"?"var(--accent)":isPast?"var(--critical)":"var(--close)";return "<div class=driver-sched-item><div style=flex:1><div class=driver-sched-date>"+overdueTag+dateStr+"</div><div class=driver-sched-notes>"+s.notes+"</div><div class=driver-sched-fill>Bin was "+Math.round(s.fillPercentAtCreation)+"% full when scheduled</div></div><span style=background:rgba(0,0,0,.2);color:"+statusColor+";border:1px solid "+statusColor+";border-radius:12px;padding:3px 12px;font-size:.75rem;font-weight:700;text-transform:uppercase;white-space:nowrap>"+s.status+"</span><div class=driver-actions>"+confirmBtn+doneBtn+"</div></div>";}).join("");}var pastHTML="";if(past.length){pastHTML="<p class=section-title style=margin-top:24px>Recent History</p>"+past.map(function(s){var d=new Date(s.scheduledFor);return "<div style=background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;opacity:.7><div style=flex:1><div style=font-size:.9rem;font-weight:600>"+d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})+"</div><div style=font-size:.78rem;color:var(--muted)>"+s.notes+"</div></div><span style=font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--muted)>"+s.status+"</span></div>";}).join("");}dv.innerHTML="<div style=background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between>"+ "<div style=display:flex;align-items:center;gap:12px>"+ "<div style=font-size:1.1rem;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent>Waste Collection Mgmt</div>"+ "<span class=driver-badge>Driver</span>"+ "</div>"+ "<div style=display:flex;align-items:center;gap:10px>"+ "<div style=font-size:.8rem;background:var(--surface2);padding:6px 12px;border-radius:20px;border:1px solid var(--border)>Driver: <b>"+username+"</b></div>"+ "<button onclick=logout() style=background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:.82rem;font-weight:600>Logout</button>"+ "</div></div>"+ "<div style=padding:24px 28px;max-width:900px;margin:0 auto>"+ "<div class=driver-panel>"+ "<h2>Your Collection Schedule</h2>"+ "<p>Showing all active bin collection jobs assigned. Mark each as collected once done.</p>"+ activeHTML+ "</div>"+ pastHTML+ "</div>";}async function driverConfirm(id){try{const res=await fetch(API+"/schedules/"+id,{method:"PATCH",headers:authHeaders(),body:JSON.stringify({status:"confirmed"})});if(res.ok){showToast("Pickup confirmed!","success");loadSchedules();}}catch{showToast("Error","error");}}async function driverDone(id){if(!confirm("Mark this collection as completed?"))return;try{const res=await fetch(API+"/schedules/"+id,{method:"PATCH",headers:authHeaders(),body:JSON.stringify({status:"completed"})});if(res.ok){showToast("Marked as collected!","success");loadSchedules();}}catch{showToast("Error","error");}}
+</script></body></html>
